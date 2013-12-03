@@ -1,0 +1,14 @@
+# ignore everything
+*
+
+# but not theses files or directories
+!.gitignore
+!Rapport/Sources/gls.sty
+!Rapport/Sources/rapport_gls.cls
+
+# and not theses type of files
+!*/
+!*.tex
+!*.m
+!*.png
+!*.jpeg

@@ -1,0 +1,104 @@
+\section{Compléter un métamodèle par des contraintes statiques}
+
+Le fichier OCLinEcore est la description du métamodèle dans la syntaxe OCL. On remarque les correspondances suivantes :
+\begin{itemize}
+   \item Les classes Process, WorkDefinition, WorkSequence et Guidance sont déclarées en tant que "class"
+   \item ProcessElement est une "abstract class"
+   \item L'énumération WorkSequenceType est déclarée avec le mot clé "enum", les éléments sont énumérés avec "literal", chacun étant mis en correspondance avec un entier
+   \item L'héritage entre les classes est déclarée avec le mot-clé "extends"
+   \item On déclare les attributs avec le mot clé "attribute" et les relations avec "property"
+   \item la relation containment est exprimée en ajoutant "composes" à une propriété
+\end{itemize}
+
+\vspace{1em}
+On ajoute ensuite des contraintes OCL avec le mot clé "invariant". Les contraintes ajoutées sont les suivantes :
+\begin{enumerate}
+   \item "sameWDName" : deux activités différentes d'un même processus ne peuvent avoir le même nom.
+   \item "reflexivity" : une dépendance ne peut pas être réflexive.
+   \item "voidName" : le nom d'une activité doit être composé d'au moins un caractère.
+\end{enumerate}
+
+\vspace{1em}
+Leur codes correspondants sont les suivants :
+\begin{lstlisting}[caption="sameWDName" in Process class]
+invariant sameWDName : (self.processElements)
+   ->select(p|p.oclIsTypeOf(WorkDefinition))
+   ->forAll(j,k | j<>k implies j.name <> k.name);
+\end{lstlisting}
+
+\begin{lstlisting}[caption="reflexivity" in WorkSequence class]
+invariant reflexivity : self.predecessor <> self.successor;
+\end{lstlisting}
+
+\begin{lstlisting}[caption="voidName" in WorkDefinition class]
+invariant voidName : name <> '';
+\end{lstlisting}
+
+\section{Application aux réseaux de Petri}
+
+Comme prévu au tp précédent on ajoute les contraintes OCL suivantes à notre modèle de réseaux de Petri :
+
+Dans la classe PetriNet :
+\begin{itemize}
+   \item "voidPetriName" : le nom d'un réseau de Petri doit avoir au moins 1 caractère
+   \item "sameNodeName" : les places et les transitions doivent avoir des noms différents
+\end{itemize}
+
+Dans la classe Node :
+\begin{itemize}
+   \item "voidNodeName" : les noms des places et des transitions doivent avoir au moins 1 caractère
+\end{itemize}
+
+Dans la classe Arc :
+\begin{itemize}
+   \item "previousNodeNotInSamePetriNet" : le noeud précédent (place ou transition) est dans le même réseau de Petri
+   \item "nextNodeNotInSamePetriNet" : le noeud suivant (place ou transition) est dans le même réseau de Petri
+   \item "placeToTransition" : un arc venant d'une place arrive sur une transition
+   \item "transitionToPlace" : un arc venant d'une transition arrive sur une place
+\end{itemize}
+
+\vspace{2em}
+Le fichier PetriNet.ecore est le suivant :
+\begin{lstlisting}[caption=PetriNet.ecore]
+module _'PetriNet.ecore'
+import ecore : 'http://www.eclipse.org/emf/2002/Ecore#/';
+
+package petrinet : petrinet = 'http://petrinet/1.0'
+{
+   class PetriNet
+   {
+      invariant voidPetriName: name <> '';
+      invariant sameNodeName:
+      self.petriNetElements->select(p : PetriNetElement | p.oclIsKindOf(Node))->forAll(j : Node, k : Node | j <> k implies j.name <> k.name);
+      attribute name : String[1] { ordered };
+      property petriNetElements#petriNet : PetriNetElement[*] { ordered composes };
+   }
+   abstract class PetriNetElement
+   {
+      property petriNet#petriNetElements : PetriNet[1] { ordered };
+   }
+   abstract class Node extends PetriNetElement
+   {
+      invariant voidNodeName: name <> '';
+      property linksToSuccessor#predecessor : Arc[*] { ordered };
+      property linksToPredecessor#successor : Arc[*] { ordered };
+      attribute name : String[1] { ordered };
+   }
+   class Arc extends PetriNetElement
+   {
+      invariant transitionToPlace: self.predecessor.oclIsTypeOf(Transition) implies self.successor.oclIsTypeOf(Place);
+      invariant previousNodeNotInSamePetriNet: self.petriNet = self.predecessor.petriNet;
+      invariant nextNodeNotInSamePetriNet: self.petriNet = self.successor.petriNet;
+      invariant placeToTransition: self.predecessor.oclIsTypeOf(Place) implies self.successor.oclIsTypeOf(Transition);
+      property predecessor#linksToSuccessor : Node[1] { ordered };
+      property successor#linksToPredecessor : Node[1] { ordered };
+      attribute multiplicity : ecore::EInt[1] { ordered };
+      attribute readOnly : Boolean[1] { ordered };
+   }
+   class Place extends Node
+   {
+      attribute marking : ecore::EInt[1] { ordered };
+   }
+   class Transition extends Node;
+}
+\end{lstlisting}
