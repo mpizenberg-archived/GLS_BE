@@ -1,0 +1,100 @@
+L'objectif de ce TP est de pouvoir transformer un modèle en texte à l'aide de l'outil Acceleo.
+
+\section{Transformation de modèle à texte avec Acceleo}
+
+Dans un premier temps on s'intéresse aux transformations à partir de modèle simplePDL.
+Ces modèles sont exportés dans des fichiers textes respectant la syntaxe PDL1 et la syntaxe DOT.\\
+
+Voilà par exemple le template pour la syntaxe PDL1 :\\
+
+\lstset{language={}}
+\begin{lstlisting}[caption=toPDL1.mtl]
+[comment encoding = UTF-8 /]
+[module toPDL1('http://simplepdl')]
+
+[comment Generation de la syntaxe PDL1 à partir d'un modèle de processus /]
+
+[template public toPDL(proc : Process)]
+[comment @main/]
+[file (proc.name.concat('.pdl1'), false, 'UTF-8')]
+process [proc.name/]{
+[for (wd : WorkDefinition | proc.processElements->getWDs())]
+   wd [wd.name/]
+[/for]
+[for (ws : WorkSequence | proc.processElements->getWSs())]
+   ws [ws.predecessor.name/] [ws.getWSType()/] [ws.successor.name/]
+[/for]
+}
+[/file]
+[/template]
+
+[query public getWDs(elements : OrderedSet(ProcessElement)) : OrderedSet(WorkDefinition) = 
+   elements->select( e | e.oclIsTypeOf(WorkDefinition) )
+      ->collect( e | e.oclAsType(WorkDefinition) )
+      ->asOrderedSet()
+/]
+
+[query public getWSs(elements : OrderedSet(ProcessElement)) : OrderedSet(WorkSequence) = 
+   elements->select( e | e.oclIsTypeOf(WorkSequence) )
+      ->collect( e | e.oclAsType(WorkSequence) )
+      ->asOrderedSet()
+/]
+
+[template public getWSType(ws : WorkSequence)]
+[if (ws.linkType = WorkSequenceType::startToStart)]
+s2s[elseif (ws.linkType = WorkSequenceType::startToFinish)]
+s2f[elseif (ws.linkType = WorkSequenceType::finishToStart)]
+f2s[elseif (ws.linkType = WorkSequenceType::finishToFinish)]
+f2f[/if]
+[/template]
+
+\end{lstlisting}
+
+Les principales structures que l'on remarque sont les "template" qui permettent de mettre en page dynamiquement des bouts de code avec les objets transmis en paramètre et les "query" qui permettent de récupérer des ensembles sur lesquels on pourra itérer.\\
+
+En s'inspirant de ce modèle, j'ai fait un template pour la transformation vers fichier ".dot".
+
+\begin{lstlisting}[caption=toDot.mtl]
+[comment encoding = UTF-8 /]
+[module toDot('http://simplepdl')]
+
+[comment Generation de la syntaxe dot à partir d'un modèle de processus /]
+
+[template public toDot(proc : Process)]
+[comment @main/]
+[file (proc.name.concat('.dot'), false, 'UTF-8')]
+digraph [proc.name/]{
+[for (ws : WorkSequence | proc.processElements->getWSs())]
+	[ws.predecessor.name/]->[ws.successor.name/]
+[/for]
+}
+[/file]
+[/template]
+
+[query public getWSs(elements : OrderedSet(ProcessElement)) : OrderedSet(WorkSequence) = 
+	elements->select( e | e.oclIsTypeOf(WorkSequence) )
+		->collect( e | e.oclAsType(WorkSequence) )
+		->asOrderedSet()
+/]
+\end{lstlisting}
+
+Avec ce template on peut transformer le modèle de processus suivant en format texte :
+
+\begin{center}
+\includegraphics[width = 0.5\textwidth]{../Images/tp2/tp2_2-1.png}
+\end{center}
+
+et on obtient :
+
+\begin{lstlisting}[caption=process.dot]
+digraph process{
+	Conception->RedactionDoc
+	Conception->RedactionDoc
+	Conception->Developpement
+	Conception->RedactionTests
+	Developpement->RedactionTests
+}
+\end{lstlisting}
+
+\section{Application aux réseaux de Petri}
+
